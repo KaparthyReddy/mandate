@@ -2,3 +2,8 @@
 __pycache__/
 .env
 *.pyc
+*.db
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/

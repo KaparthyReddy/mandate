@@ -19,10 +19,10 @@ def get_token() -> str:
         timeout=30,
     )
     r.raise_for_status()
-    return r.json()["access_token"]
+    return str(r.json()["access_token"])
 
 
-def auth_headers(token: str) -> dict:
+def auth_headers(token: str) -> dict[str, str]:
     return {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -30,12 +30,10 @@ def auth_headers(token: str) -> dict:
     }
 
 
-def create_order(token: str) -> dict:
+def create_order(token: str) -> dict[str, object]:
     body = {
         "intent": "CAPTURE",
-        "purchase_units": [
-            {"amount": {"currency_code": "USD", "value": "10.00"}}
-        ],
+        "purchase_units": [{"amount": {"currency_code": "USD", "value": "10.00"}}],
         "payment_source": {
             "paypal": {
                 "experience_context": {
@@ -55,10 +53,10 @@ def create_order(token: str) -> dict:
     if not r.ok:
         print(r.status_code, r.text)
         sys.exit(1)
-    return r.json()
+    return dict(r.json())
 
 
-def capture_order(token: str, order_id: str) -> dict:
+def capture_order(token: str, order_id: str) -> dict[str, object]:
     r = requests.post(
         f"{BASE}/v2/checkout/orders/{order_id}/capture",
         headers=auth_headers(token),
@@ -67,7 +65,7 @@ def capture_order(token: str, order_id: str) -> dict:
     if not r.ok:
         print(r.status_code, r.text)
         sys.exit(1)
-    return r.json()
+    return dict(r.json())
 
 
 def main() -> None:
@@ -75,13 +73,15 @@ def main() -> None:
     order = create_order(token)
     print("order id:", order["id"], "status:", order["status"])
     link = next(
-        l["href"] for l in order["links"] if l["rel"] in ("payer-action", "approve")
+        item["href"]
+        for item in order["links"]  # type: ignore[attr-defined]
+        if item["rel"] in ("payer-action", "approve")
     )
-    print("\nOpen this link, log in with your sandbox PERSONAL account, approve:")
+    print("\nOpen this link in a private window and log in with your sandbox PERSONAL account:")
     print(link)
     input("\nPress Enter after approving...")
-    result = capture_order(token, order["id"])
-    capture = result["purchase_units"][0]["payments"]["captures"][0]
+    result = capture_order(token, str(order["id"]))
+    capture = result["purchase_units"][0]["payments"]["captures"][0]  # type: ignore[index]
     print("status:", result["status"])
     print("capture id:", capture["id"])
     print("amount:", capture["amount"]["value"], capture["amount"]["currency_code"])

@@ -2,7 +2,7 @@
 name = "mandate"
 version = "0.1.0"
 description = "OAuth for AI spending"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
     "fastapi>=0.115",
@@ -11,6 +11,7 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "python-dotenv>=1.0",
     "requests>=2.32",
+    "cryptography>=43",
 ]
 
 [project.optional-dependencies]

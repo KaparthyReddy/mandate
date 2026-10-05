@@ -21,3 +21,16 @@ class WebhookEvent(Base):
     event_type: Mapped[str] = mapped_column(String(128))
     payload: Mapped[dict[str, Any]] = mapped_column(JSON)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class LedgerEntry(Base):
+    __tablename__ = "ledger_entries"
+
+    seq: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    prev_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    entry_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    entry_type: Mapped[str] = mapped_column(String(64), index=True)
+    actor: Mapped[str] = mapped_column(String(128))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[str] = mapped_column(String(40))
+    schema_version: Mapped[int] = mapped_column(default=1)

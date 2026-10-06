@@ -65,6 +65,7 @@ RESERVING = (
 class MandateCreate(BaseModel):
     issuer: str
     agent_id: str
+    purpose: str = Field(default="", max_length=500)
     currency: str = "USD"
     budget_total: Decimal = Field(gt=0)
     per_txn_cap: Decimal = Field(gt=0)
@@ -117,6 +118,7 @@ def create_mandate(
         mandate_id=f"m-{uuid.uuid4().hex[:12]}",
         issuer=create.issuer,
         agent_id=create.agent_id,
+        purpose=create.purpose,
         currency=create.currency,
         budget_total=create.budget_total,
         per_txn_cap=create.per_txn_cap,
@@ -226,16 +228,17 @@ def _decide(
     public_key: Ed25519PublicKey,
     reviewers: Sequence[Reviewer],
     now: datetime | None,
-) -> tuple[Decision, list[str]]:
+) -> tuple[Decision, list[str], list[Vote]]:
     mandate, problem = _load_valid_mandate(session, request.mandate_id, public_key, now)
     if mandate is None:
-        return Decision.DENY, [problem or "mandate unavailable"]
+        return Decision.DENY, [problem or "mandate unavailable"], []
     spent = spent_amount(session, mandate.mandate_id)
     result = policy.evaluate(mandate, request, spent, now)
     if result.decision == Decision.DENY:
-        return Decision.DENY, result.reasons
+        return Decision.DENY, result.reasons, []
     votes = _collect_votes(reviewers, mandate, request, spent)
-    return combine(result.decision, result.reasons, votes)
+    decision, reasons = combine(result.decision, result.reasons, votes)
+    return decision, reasons, votes
 
 
 def _find_payment(session: Session, request_id: str) -> PaymentRecord | None:
@@ -311,7 +314,7 @@ def process_payment(
         request.model_dump(mode="json"),
         actor=request.agent_id,
     )
-    decision, reasons = _decide(session, request, public_key, reviewers, now)
+    decision, reasons, votes = _decide(session, request, public_key, reviewers, now)
     status = {
         Decision.DENY: PaymentStatus.DENIED,
         Decision.ESCALATE: PaymentStatus.PENDING_APPROVAL,
@@ -352,6 +355,7 @@ def process_payment(
             "decision": record.decision,
             "status": record.status,
             "reasons": record.reasons,
+            "votes": [vote.model_dump(mode="json") for vote in votes],
         },
         actor="mandate",
     )

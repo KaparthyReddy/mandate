@@ -22,6 +22,7 @@ class PaymentRequest(BaseModel):
     merchant: str
     category: str
     description: str = ""
+    evidence: str = Field(default="", max_length=8000)
 
 
 class PolicyResult(BaseModel):

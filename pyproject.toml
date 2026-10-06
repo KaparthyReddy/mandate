@@ -12,6 +12,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "requests>=2.32",
     "cryptography>=43",
+    "langgraph>=0.2",
 ]
 
 [project.optional-dependencies]

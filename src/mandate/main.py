@@ -19,8 +19,9 @@ from mandate.mandates import SignedMandate
 from mandate.models import Base, LedgerEntry, WebhookEvent
 from mandate.policy import PaymentRequest
 from mandate.provider import PaymentProvider, ProviderError, get_provider
-from mandate.reviewers import Reviewer, get_reviewers
+from mandate.reviewers import Reviewer
 from mandate.service import MandateCreate, NotFoundError, StateError
+from mandate.wiring import get_reviewers
 
 
 @asynccontextmanager

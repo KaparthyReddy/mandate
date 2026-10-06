@@ -34,6 +34,7 @@ class Mandate(BaseModel):
     mandate_id: str
     issuer: str
     agent_id: str
+    purpose: str = Field(default="", max_length=500)
     currency: str = "USD"
     budget_total: Decimal = Field(gt=0)
     per_txn_cap: Decimal = Field(gt=0)

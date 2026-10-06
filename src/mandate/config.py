@@ -23,6 +23,10 @@ class Settings:
     payment_provider: str
     private_key_b64: str
     public_key_b64: str
+    council_enabled: bool
+    ollama_url: str
+    ollama_model: str
+    llm_timeout: float
 
 
 @lru_cache
@@ -34,6 +38,10 @@ def get_settings() -> Settings:
         payment_provider=os.environ.get("PAYMENT_PROVIDER", "paypal"),
         private_key_b64=os.environ.get("MANDATE_PRIVATE_KEY", ""),
         public_key_b64=os.environ.get("MANDATE_PUBLIC_KEY", ""),
+        council_enabled=os.environ.get("COUNCIL_ENABLED", "true").lower() in ("1", "true", "yes"),
+        ollama_url=os.environ.get("OLLAMA_URL", "http://localhost:11434"),
+        ollama_model=os.environ.get("OLLAMA_MODEL", "llama3.1"),
+        llm_timeout=float(os.environ.get("LLM_TIMEOUT", "90")),
     )
 
 

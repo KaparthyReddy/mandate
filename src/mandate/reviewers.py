@@ -1,8 +1,8 @@
 from collections.abc import Sequence
 from decimal import Decimal
-from typing import Protocol
+from typing import Any, Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from mandate.mandates import Mandate
 from mandate.policy import Decision, PaymentRequest
@@ -14,19 +14,13 @@ class Vote(BaseModel):
     reviewer: str
     decision: Decision
     reasons: list[str]
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class Reviewer(Protocol):
     name: str
 
     def review(self, mandate: Mandate, request: PaymentRequest, spent: Decimal) -> Vote: ...
-
-
-REVIEWERS: list[Reviewer] = []
-
-
-def get_reviewers() -> Sequence[Reviewer]:
-    return REVIEWERS
 
 
 def combine(

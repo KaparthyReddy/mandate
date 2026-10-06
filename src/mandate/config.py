@@ -1,0 +1,51 @@
+import os
+from dataclasses import dataclass
+from functools import lru_cache
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
+from dotenv import load_dotenv
+
+from mandate import crypto
+
+load_dotenv()
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./mandate.db")
+
+
+@dataclass(frozen=True)
+class Settings:
+    paypal_base_url: str
+    paypal_client_id: str
+    paypal_client_secret: str
+    payment_provider: str
+    private_key_b64: str
+    public_key_b64: str
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings(
+        paypal_base_url=os.environ.get("PAYPAL_BASE_URL", "https://api-m.sandbox.paypal.com"),
+        paypal_client_id=os.environ.get("PAYPAL_CLIENT_ID", ""),
+        paypal_client_secret=os.environ.get("PAYPAL_CLIENT_SECRET", ""),
+        payment_provider=os.environ.get("PAYMENT_PROVIDER", "paypal"),
+        private_key_b64=os.environ.get("MANDATE_PRIVATE_KEY", ""),
+        public_key_b64=os.environ.get("MANDATE_PUBLIC_KEY", ""),
+    )
+
+
+def get_private_key() -> Ed25519PrivateKey:
+    value = get_settings().private_key_b64
+    if not value:
+        raise RuntimeError("MANDATE_PRIVATE_KEY is not set")
+    return crypto.private_key_from_b64(value)
+
+
+def get_public_key() -> Ed25519PublicKey:
+    value = get_settings().public_key_b64
+    if not value:
+        raise RuntimeError("MANDATE_PUBLIC_KEY is not set")
+    return crypto.public_key_from_b64(value)

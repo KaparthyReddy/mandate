@@ -23,6 +23,10 @@ class Reviewer(Protocol):
     def review(self, mandate: Mandate, request: PaymentRequest, spent: Decimal) -> Vote: ...
 
 
+def stricter(first: Decision, second: Decision) -> Decision:
+    return first if _SEVERITY[first] >= _SEVERITY[second] else second
+
+
 def combine(
     decision: Decision,
     reasons: list[str],
@@ -33,6 +37,5 @@ def combine(
     for vote in votes:
         if vote.decision != Decision.APPROVE:
             collected.extend(f"{vote.reviewer}: {reason}" for reason in vote.reasons)
-        if _SEVERITY[vote.decision] > _SEVERITY[final]:
-            final = vote.decision
+        final = stricter(final, vote.decision)
     return final, collected

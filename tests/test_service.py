@@ -302,3 +302,21 @@ def test_failing_reviewer_fails_safe(
     record = pay(session, key, provider, mid, "10.00", "r-1", [BrokenReviewer()])
     assert record.status == "pending_approval"
     assert provider.orders == []
+
+
+def test_denial_reasons_do_not_include_the_policy_approval_note(
+    session: Session, key: Ed25519PrivateKey, provider: FakeProvider
+) -> None:
+    mid = new_mandate(session, key)
+    record = pay(session, key, provider, mid, "10.00", "r-1", [StubReviewer(Decision.DENY)])
+    assert record.status == "denied"
+    assert "within mandate limits" not in record.reasons
+    assert any("stub" in reason for reason in record.reasons)
+
+
+def test_clean_approval_keeps_the_policy_note(
+    session: Session, key: Ed25519PrivateKey, provider: FakeProvider
+) -> None:
+    mid = new_mandate(session, key)
+    record = pay(session, key, provider, mid, "10.00", "r-1", [StubReviewer(Decision.APPROVE)])
+    assert record.reasons == ["within mandate limits"]

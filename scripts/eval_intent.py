@@ -10,18 +10,27 @@ from mandate.intent_agent import IntentAgent
 from mandate.llm import LLMError, OllamaClient
 from mandate.mandates import Mandate
 from mandate.policy import Decision, PaymentRequest
+from mandate.reviewers import stricter
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", default="evals/intent_cases.jsonl")
     parser.add_argument("--model", default=None)
+    parser.add_argument("--ensemble", default=None, help="comma-separated models, strictest wins")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
     settings = get_settings()
-    model = args.model or settings.ollama_model
-    agent = IntentAgent(OllamaClient(settings.ollama_url, model, settings.llm_timeout))
+    if args.ensemble:
+        models = [m.strip() for m in args.ensemble.split(",") if m.strip()]
+    else:
+        models = [args.model or settings.ollama_model]
+    single = len(models) == 1
+    agents = [
+        IntentAgent(OllamaClient(settings.ollama_url, m, settings.llm_timeout), name=m)
+        for m in models
+    ]
     cases = [json.loads(line) for line in Path(args.cases).read_text().splitlines() if line.strip()]
 
     now = datetime.now(UTC)
@@ -52,41 +61,47 @@ def main() -> None:
         )
         started = time.perf_counter()
         try:
-            vote = agent.review(mandate, request, Decimal("0"))
+            votes = [agent.review(mandate, request, Decimal("0")) for agent in agents]
         except LLMError as exc:
             errors += 1
             print(f"[{index:02d}] ERROR {exc}")
             continue
         latencies.append(time.perf_counter() - started)
 
-        verdict = str(vote.details.get("verdict"))
-        confidence = float(vote.details.get("confidence", 0))
+        decision = Decision.APPROVE
+        for vote in votes:
+            decision = stricter(decision, vote.decision)
+        verdicts = "/".join(str(v.details.get("verdict")) for v in votes)
+        confidences = "/".join(f"{float(v.details.get('confidence', 0)):.2f}" for v in votes)
         expected = case["expected"]
-        exact += verdict == expected
-        binary += (vote.decision == Decision.APPROVE) == (expected == "match")
-        if expected == "mismatch" and vote.decision == Decision.APPROVE:
+        safe = (decision == Decision.APPROVE) == (expected == "match")
+        binary += safe
+        if single:
+            exact += verdicts == expected
+        if expected == "mismatch" and decision == Decision.APPROVE:
             bad_approved += 1
-        if expected == "unclear" and vote.decision == Decision.APPROVE:
+        if expected == "unclear" and decision == Decision.APPROVE:
             ambiguous_approved += 1
-        if expected == "match" and vote.decision == Decision.DENY:
+        if expected == "match" and decision == Decision.DENY:
             legit_denied += 1
-        if expected == "match" and vote.decision == Decision.ESCALATE:
+        if expected == "match" and decision == Decision.ESCALATE:
             legit_escalated += 1
-        ok = verdict == expected
+        ok = verdicts == expected if single else safe
         if not args.quiet or not ok:
             mark = "ok  " if ok else "MISS"
             print(
-                f"[{index:02d}] {mark} expected={expected:<8} got={verdict:<8} "
-                f"conf={confidence:.2f} decision={vote.decision.value:<8} "
-                f"{case['merchant']}: {case['description'][:45]}"
+                f"[{index:02d}] {mark} expected={expected:<8} got={verdicts:<24} "
+                f"conf={confidences:<10} decision={decision.value:<8} "
+                f"{case['merchant']}: {case['description'][:40]}"
             )
 
     scored = len(cases) - errors
     print()
-    print(f"model: {model}")
+    print(f"models: {', '.join(models)}{'' if single else '  (ensemble, strictest wins)'}")
     print(f"cases: {len(cases)}  errors: {errors}")
     if scored:
-        print(f"verdict accuracy: {exact}/{scored} ({exact / scored:.0%})")
+        if single:
+            print(f"verdict accuracy: {exact}/{scored} ({exact / scored:.0%})")
         print(f"approve-vs-not accuracy: {binary}/{scored} ({binary / scored:.0%})")
         print(f"BAD payment approved (critical): {bad_approved}")
         print(f"ambiguous payment approved: {ambiguous_approved}")

@@ -153,6 +153,27 @@ def revoke_mandate(session: Session, mandate_id: str) -> None:
     )
 
 
+def kill_switch(session: Session, actor: str = "human") -> dict[str, int]:
+    mandates = list(session.scalars(select(MandateRecord).where(MandateRecord.status == "active")))
+    for record in mandates:
+        record.status = "revoked"
+    pending = list(
+        session.scalars(
+            select(PaymentRecord).where(
+                PaymentRecord.status == PaymentStatus.PENDING_APPROVAL.value
+            )
+        )
+    )
+    for payment in pending:
+        payment.status = PaymentStatus.REJECTED.value
+        payment.reasons = [*payment.reasons, "kill switch activated"]
+        payment.updated_at = _now_iso()
+    session.commit()
+    counts = {"mandates_revoked": len(mandates), "payments_rejected": len(pending)}
+    ledger.append(session, EventType.KILL_SWITCH, counts, actor=actor)
+    return counts
+
+
 def spent_amount(session: Session, mandate_id: str) -> Decimal:
     rows = session.scalars(
         select(PaymentRecord.amount).where(
@@ -237,8 +258,9 @@ def _decide(
     if result.decision == Decision.DENY:
         return Decision.DENY, result.reasons, []
     votes = _collect_votes(reviewers, mandate, request, spent)
-    decision, reasons = combine(result.decision, result.reasons, votes)
-    return decision, reasons, votes
+    base_reasons = [] if result.decision == Decision.APPROVE else result.reasons
+    decision, reasons = combine(result.decision, base_reasons, votes)
+    return decision, reasons or result.reasons, votes
 
 
 def _find_payment(session: Session, request_id: str) -> PaymentRecord | None:

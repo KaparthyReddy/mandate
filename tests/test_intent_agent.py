@@ -143,3 +143,17 @@ def test_prompt_examples_do_not_leak_eval_cases() -> None:
 def test_system_prompt_includes_examples() -> None:
     assert "Examples:" in SYSTEM_PROMPT
     assert all(example.description in SYSTEM_PROMPT for example in EXAMPLES)
+
+
+def test_agent_name_can_be_customized() -> None:
+    assert IntentAgent(FakeLLM(verdict("match", 0.9))).name == "intent"
+    assert IntentAgent(FakeLLM(verdict("match", 0.9)), name="intent-x").name == "intent-x"
+    vote = IntentAgent(FakeLLM(verdict("match", 0.9)), name="intent-x").review(
+        make_mandate(), make_request(), Decimal("0")
+    )
+    assert vote.reviewer == "intent-x"
+
+
+def test_prompt_rules_cover_vague_and_adjacent_purchases() -> None:
+    assert "vague" in SYSTEM_PROMPT
+    assert "different topic" in SYSTEM_PROMPT

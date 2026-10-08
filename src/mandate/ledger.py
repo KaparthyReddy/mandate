@@ -1,23 +1,27 @@
 import hashlib
 import json
 import logging
+import threading
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from mandate.models import LedgerEntry
 
 GENESIS_HASH = "0" * 64
 SCHEMA_VERSION = 1
+MAX_APPEND_ATTEMPTS = 10
 
 logger = logging.getLogger(__name__)
 
 Listener = Callable[[LedgerEntry], None]
 _listeners: list[Listener] = []
+_append_lock = threading.Lock()
 
 
 class VerificationResult(BaseModel):
@@ -78,36 +82,53 @@ def get_head(session: Session) -> tuple[int, str]:
     return last.seq, last.entry_hash
 
 
+def _insert(
+    session: Session,
+    entry_type: str,
+    payload: dict[str, Any],
+    actor: str,
+) -> LedgerEntry:
+    clean = normalize(payload)
+    for _ in range(MAX_APPEND_ATTEMPTS):
+        with _append_lock:
+            seq, prev_hash = get_head(session)
+            seq += 1
+            created_at = datetime.now(UTC).isoformat()
+            entry = LedgerEntry(
+                seq=seq,
+                prev_hash=prev_hash,
+                entry_hash=compute_hash(
+                    seq=seq,
+                    prev_hash=prev_hash,
+                    entry_type=str(entry_type),
+                    actor=actor,
+                    payload=clean,
+                    created_at=created_at,
+                    schema_version=SCHEMA_VERSION,
+                ),
+                entry_type=str(entry_type),
+                actor=actor,
+                payload=clean,
+                created_at=created_at,
+                schema_version=SCHEMA_VERSION,
+            )
+            session.add(entry)
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                continue
+            return entry
+    raise RuntimeError("could not append to the ledger after repeated conflicts")
+
+
 def append(
     session: Session,
     entry_type: str,
     payload: dict[str, Any],
     actor: str = "system",
 ) -> LedgerEntry:
-    seq, prev_hash = get_head(session)
-    seq += 1
-    clean = normalize(payload)
-    created_at = datetime.now(UTC).isoformat()
-    entry = LedgerEntry(
-        seq=seq,
-        prev_hash=prev_hash,
-        entry_hash=compute_hash(
-            seq=seq,
-            prev_hash=prev_hash,
-            entry_type=str(entry_type),
-            actor=actor,
-            payload=clean,
-            created_at=created_at,
-            schema_version=SCHEMA_VERSION,
-        ),
-        entry_type=str(entry_type),
-        actor=actor,
-        payload=clean,
-        created_at=created_at,
-        schema_version=SCHEMA_VERSION,
-    )
-    session.add(entry)
-    session.commit()
+    entry = _insert(session, entry_type, payload, actor)
     for listener in list(_listeners):
         try:
             listener(entry)

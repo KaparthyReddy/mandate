@@ -1,0 +1,64 @@
+{"name": "Amazon", "category": "marketplace", "reputation": "trusted", "notes": "Large established online marketplace"}
+{"name": "Walmart", "category": "groceries", "reputation": "trusted", "notes": "National grocery and general retailer"}
+{"name": "Target", "category": "retail", "reputation": "trusted", "notes": "National general retailer"}
+{"name": "Costco", "category": "wholesale", "reputation": "trusted", "notes": "Membership wholesale club"}
+{"name": "Kroger", "category": "groceries", "reputation": "trusted", "notes": "National supermarket chain"}
+{"name": "Whole Foods", "category": "groceries", "reputation": "trusted", "notes": "Established natural foods grocer"}
+{"name": "BigMart", "category": "groceries", "reputation": "trusted", "notes": "Demo supermarket chain"}
+{"name": "FreshFarm", "category": "groceries", "reputation": "trusted", "notes": "Demo fresh produce grocer"}
+{"name": "BulkBarn", "category": "groceries", "reputation": "trusted", "notes": "Bulk food store"}
+{"name": "Best Buy", "category": "electronics", "reputation": "trusted", "notes": "Established consumer electronics retailer"}
+{"name": "Apple", "category": "electronics", "reputation": "trusted", "notes": "Device maker and online store"}
+{"name": "Staples", "category": "office_supplies", "reputation": "trusted", "notes": "Office supplies retailer"}
+{"name": "Office Depot", "category": "office_supplies", "reputation": "trusted", "notes": "Office supplies retailer"}
+{"name": "Lufthansa", "category": "travel", "reputation": "trusted", "notes": "Major airline"}
+{"name": "Delta Air Lines", "category": "travel", "reputation": "trusted", "notes": "Major airline"}
+{"name": "Airbnb", "category": "lodging", "reputation": "trusted", "notes": "Established lodging marketplace"}
+{"name": "Booking.com", "category": "lodging", "reputation": "trusted", "notes": "Established hotel booking site"}
+{"name": "Hotel Mitte", "category": "lodging", "reputation": "trusted", "notes": "Demo hotel in Berlin"}
+{"name": "Uber", "category": "transport", "reputation": "trusted", "notes": "Established ride service"}
+{"name": "Lyft", "category": "transport", "reputation": "trusted", "notes": "Established ride service"}
+{"name": "AWS", "category": "cloud", "reputation": "trusted", "notes": "Cloud computing provider"}
+{"name": "Google Cloud", "category": "cloud", "reputation": "trusted", "notes": "Cloud computing provider"}
+{"name": "GitHub", "category": "developer_tools", "reputation": "trusted", "notes": "Code hosting and developer tools"}
+{"name": "Microsoft", "category": "software", "reputation": "trusted", "notes": "Software and cloud vendor"}
+{"name": "Coursera", "category": "education", "reputation": "trusted", "notes": "Online courses from universities"}
+{"name": "Udemy", "category": "education", "reputation": "trusted", "notes": "Online course marketplace"}
+{"name": "Netflix", "category": "entertainment", "reputation": "trusted", "notes": "Streaming subscription"}
+{"name": "Home Depot", "category": "home_improvement", "reputation": "trusted", "notes": "Home improvement retailer"}
+{"name": "IKEA", "category": "furniture", "reputation": "trusted", "notes": "Furniture retailer"}
+{"name": "PowerGrid", "category": "utilities", "reputation": "trusted", "notes": "Demo electricity provider"}
+{"name": "NetFast", "category": "internet", "reputation": "trusted", "notes": "Demo internet provider"}
+{"name": "PizzaPlace", "category": "restaurant", "reputation": "trusted", "notes": "Demo restaurant chain"}
+{"name": "DomainCo", "category": "hosting", "reputation": "trusted", "notes": "Demo domain registrar"}
+{"name": "Corner Pharmacy", "category": "health", "reputation": "neutral", "notes": "Local pharmacy"}
+{"name": "CoffeeCo", "category": "food", "reputation": "neutral", "notes": "Small coffee roaster"}
+{"name": "RideShare", "category": "transport", "reputation": "neutral", "notes": "Generic ride service"}
+{"name": "TravelDeals", "category": "travel", "reputation": "neutral", "notes": "Discount travel aggregator with mixed reviews"}
+{"name": "GiftShop", "category": "gifts", "reputation": "neutral", "notes": "Independent gift store"}
+{"name": "BookNook", "category": "stationery", "reputation": "neutral", "notes": "Independent bookstore and stationery"}
+{"name": "TechHub", "category": "electronics", "reputation": "neutral", "notes": "Small electronics reseller"}
+{"name": "WholesaleHub", "category": "general", "reputation": "neutral", "notes": "General wholesale reseller"}
+{"name": "FoodHub", "category": "food", "reputation": "neutral", "notes": "Food delivery aggregator"}
+{"name": "CryptoExchange", "category": "finance", "reputation": "risky", "notes": "Cryptocurrency exchange with irreversible transfers"}
+{"name": "Token Market", "category": "finance", "reputation": "risky", "notes": "Crypto token marketplace, volatile and irreversible"}
+{"name": "Casino Royale", "category": "gambling", "reputation": "risky", "notes": "Online casino and sports betting"}
+{"name": "BetKing", "category": "gambling", "reputation": "risky", "notes": "Online sports betting"}
+{"name": "Lucky Spin", "category": "gambling", "reputation": "risky", "notes": "Online slots and gambling"}
+{"name": "GiftCardMart", "category": "gift_cards", "reputation": "risky", "notes": "Gift card reseller, a common cash-out route for fraud"}
+{"name": "Prepaid Top-Up", "category": "prepaid", "reputation": "risky", "notes": "Prepaid card top-ups, hard to reverse"}
+{"name": "QuickCash Transfer", "category": "money_transfer", "reputation": "risky", "notes": "Wire and remittance service, common scam destination"}
+{"name": "Forex Signals Pro", "category": "finance", "reputation": "risky", "notes": "Trading signals subscription with frequent complaints"}
+{"name": "Binary Options Hub", "category": "finance", "reputation": "risky", "notes": "Binary options trading platform"}
+{"name": "TechSupport Now", "category": "software", "reputation": "risky", "notes": "Remote tech support service, frequent scam pattern"}
+{"name": "Free Trial Club", "category": "subscription", "reputation": "risky", "notes": "Free trial that converts into costly subscription"}
+{"name": "Miracle Pills", "category": "health", "reputation": "risky", "notes": "Unlicensed supplements"}
+{"name": "Ticket Resale Express", "category": "tickets", "reputation": "risky", "notes": "Unverified ticket resale"}
+{"name": "paypa1-support", "category": "payments", "reputation": "blocked", "notes": "Lookalike of PayPal used for phishing"}
+{"name": "amaz0n-deals", "category": "retail", "reputation": "blocked", "notes": "Lookalike of Amazon used for fraud"}
+{"name": "FreeGiftClaim", "category": "promotions", "reputation": "blocked", "notes": "Advance-fee gift scam"}
+{"name": "Crypto Doubler", "category": "finance", "reputation": "blocked", "notes": "Promises to double crypto, scam"}
+{"name": "Urgent Invoice Center", "category": "billing", "reputation": "blocked", "notes": "Fake invoice scam"}
+{"name": "Account Verify Team", "category": "security", "reputation": "blocked", "notes": "Credential phishing"}
+{"name": "Lottery Winner Claims", "category": "promotions", "reputation": "blocked", "notes": "Lottery advance-fee scam"}
+{"name": "Refund Recovery Services", "category": "finance", "reputation": "blocked", "notes": "Scam recovery fraud"}

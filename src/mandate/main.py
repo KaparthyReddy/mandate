@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -7,7 +8,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -52,6 +53,19 @@ async def state_handler(_: Request, exc: StateError) -> JSONResponse:
 @app.exception_handler(ProviderError)
 async def provider_handler(_: Request, exc: ProviderError) -> JSONResponse:
     return JSONResponse(status_code=502, content={"detail": str(exc)})
+
+
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.get("/", include_in_schema=False)
+def dashboard() -> FileResponse:
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.post("/kill-switch")
+def kill_switch(session: SessionDep) -> dict[str, int]:
+    return service.kill_switch(session)
 
 
 @app.get("/health")

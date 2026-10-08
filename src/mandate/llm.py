@@ -56,5 +56,5 @@ class FakeLLM:
         return self.response
 
 
-def build_llm(settings: Settings) -> LLMClient:
-    return OllamaClient(settings.ollama_url, settings.ollama_model, settings.llm_timeout)
+def build_llm(settings: Settings, model: str | None = None) -> LLMClient:
+    return OllamaClient(settings.ollama_url, model or settings.ollama_model, settings.llm_timeout)

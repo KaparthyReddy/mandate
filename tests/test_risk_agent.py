@@ -111,3 +111,14 @@ def test_details_are_json_serializable_and_bounded() -> None:
 def test_trusted_merchant_is_not_blocked_by_mild_anomalies() -> None:
     vote = review("Staples", "office_supplies", amount="19.50")
     assert vote.decision == Decision.APPROVE
+
+
+def test_blocked_merchant_is_denied_whatever_category_is_claimed() -> None:
+    for category in ("payments", "electronics", "groceries", "office_supplies"):
+        assert review("paypa1-support", category).decision == Decision.DENY
+
+
+def test_category_does_not_change_the_reputation_match() -> None:
+    first = review("CryptoExchange", "finance").details["reputation"]
+    second = review("CryptoExchange", "groceries").details["reputation"]
+    assert first["matches"][0]["similarity"] == second["matches"][0]["similarity"]

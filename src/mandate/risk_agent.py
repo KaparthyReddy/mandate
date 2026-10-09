@@ -20,7 +20,7 @@ class RiskAgent:
         *,
         min_similarity: float = 0.6,
         exact_similarity: float = 0.95,
-        deny_similarity: float = 0.85,
+        deny_similarity: float = 0.75,
         escalate_at: float = 0.4,
         unknown_risk: float = 0.4,
         reputation_weight: float = 0.7,

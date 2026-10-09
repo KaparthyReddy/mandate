@@ -165,8 +165,8 @@ function renderFeed(){
 function purposeOf(id){const m=S.mandates.find(x=>x.mandate.mandate.mandate_id===id);return m?m.mandate.mandate.purpose||id:id}
 function inboxItem(p){const url=safeUrl(p.approval_url),pending=p.status==='pending_approval';
   return `<div class="inb"><div class="row"><b>${esc(p.merchant)}</b><span class="amt">${money(p.amount)}</span></div>
-  <div class="mute">${pending?esc(p.reasons[0]||'Needs your decision'):'Approved by the council.'}, ${ago(p.created_at)}</div>
-  <div class="mute">${esc(purposeOf(p.mandate_id))}</div>
+  <div class="mute">${pending?esc(p.reasons[0]||'Needs your decision'):'Approved by the council, waiting for checkout'}</div>
+  <div class="mute">${esc(purposeOf(p.mandate_id))}, ${ago(p.created_at)}</div>
   <div class="acts">${pending
     ?`<button class="btn sm" data-act="approve" data-id="${esc(p.request_id)}">Approve</button><button class="btn red sm" data-act="reject" data-id="${esc(p.request_id)}">Reject</button>`
     :`${url?`<a href="${esc(url)}" target="_blank" rel="noopener">Open PayPal checkout</a>`:''}<button class="btn ghost sm" data-act="capture" data-id="${esc(p.request_id)}">Capture payment</button>`}</div></div>`}
@@ -180,16 +180,22 @@ function renderInbox(){
     +(hidden>0?`<div class="mute" style="margin-top:8px">${hidden} older orders not shown</div>`:'');
 }
 function render(){renderChain();renderMandates();renderFeed();renderInbox();S.maxSeq=S.last}
+let ticking=false,again=false;
 async function tick(){
+  if(ticking){again=true;return}
+  ticking=true;
   try{
     const v=await api('/ledger/verify');
     if(S.last<0)S.last=Math.max(0,v.head_seq-40);
     const [e,p,m]=await Promise.all([api(`/ledger?after_seq=${S.last}&limit=200`),api('/payments?limit=40'),api('/mandates')]);
-    for(const x of e){S.entries.push(x);S.last=x.seq;
+    for(const x of e){
+      if(S.entries.some(y=>y.seq===x.seq))continue;
+      S.entries.push(x);S.last=Math.max(S.last,x.seq);
       if(x.entry_type==='decision_made'){const c=(x.payload.votes||[])[0];S.votes[x.payload.request_id]=c?(c.details.votes||[c]):[]}}
-    S.entries=S.entries.slice(-60);S.payments=p;S.mandates=m;
+    S.entries.sort((a,b)=>a.seq-b.seq);S.entries=S.entries.slice(-60);S.payments=p;S.mandates=m;
     renderIntegrity(v);render();$('#offline').hidden=true;
   }catch(err){$('#offline').hidden=false}
+  finally{ticking=false;if(again){again=false;tick()}}
 }
 async function act(b){
   const k=b.dataset.act,id=b.dataset.id;

@@ -39,11 +39,11 @@ def load_records(path: Path = DEFAULT_CORPUS) -> list[MerchantRecord]:
 
 
 def record_text(record: MerchantRecord) -> str:
-    return f"{record.name} | {record.category}"
+    return record.name
 
 
 def query_text(request: PaymentRequest) -> str:
-    return f"{request.merchant} | {request.category}"
+    return request.merchant
 
 
 class ReputationIndex:

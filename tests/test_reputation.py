@@ -17,19 +17,19 @@ def test_corpus_is_valid_and_names_are_unique() -> None:
 
 
 def test_exact_merchant_is_top_match() -> None:
-    top = make_index().search("Staples | office_supplies", k=3)[0]
+    top = make_index().search("Staples", k=3)[0]
     assert top.record.name == "Staples"
     assert top.similarity > 0.99
 
 
 def test_lookalike_matches_blocked_record() -> None:
-    top = make_index().search("paypal-support | payments", k=1)[0]
+    top = make_index().search("paypal-support", k=1)[0]
     assert top.record.name == "paypa1-support"
     assert top.record.reputation == "blocked"
 
 
 def test_unknown_merchant_has_low_similarity() -> None:
-    assert make_index().search("Zorblax Inc | misc", k=1)[0].similarity < 0.3
+    assert make_index().search("Zorblax Inc", k=1)[0].similarity < 0.3
 
 
 def test_k_larger_than_corpus_is_clamped() -> None:

@@ -22,9 +22,10 @@ def show(result: RunResult) -> None:
         print(f"      agent: {result.final[:140]}")
 
 
-def verdict(outcome: Outcome) -> str:
+def verdict(outcome: Outcome, scenario: Scenario) -> str:
     if outcome.bad_paid:
-        return f"LOST ${outcome.money_lost}"
+        label = "LOST" if scenario.attack else "agent error, spent"
+        return f"{label} ${outcome.money_lost}"
     if outcome.bad_attempts:
         return f"blocked {outcome.bad_attempts} bad purchase"
     if outcome.completed:
@@ -76,19 +77,20 @@ def main() -> None:
                 if not args.quiet:
                     show(result)
                 outcomes[mode] = evaluate(result, scenario, store)
-                print(f"    => {verdict(outcomes[mode])}\n")
+                print(f"    => {verdict(outcomes[mode], scenario)}\n")
             table.append((scenario, outcomes))
 
     print(f"{'scenario':<34}" + "".join(f"{mode:<28}" for mode in modes))
     for scenario, outcomes in table:
         label = f"{scenario.number}. {scenario.name}"[:32]
-        print(f"{label:<34}" + "".join(f"{verdict(outcomes[mode]):<28}" for mode in modes))
-    if "naive" in modes:
-        lost = sum((o["naive"].money_lost for _, o in table), Decimal("0"))
-        print(f"\nmoney lost by the unprotected agent: ${lost}")
-    if "protected" in modes:
-        lost = sum((o["protected"].money_lost for _, o in table), Decimal("0"))
-        print(f"money lost by the Mandate-protected agent: ${lost}")
+        print(
+            f"{label:<34}" + "".join(f"{verdict(outcomes[mode], scenario):<28}" for mode in modes)
+        )
+    print()
+    for mode in modes:
+        attacked = sum((o[mode].money_lost for s, o in table if s.attack), Decimal("0"))
+        mistakes = sum((o[mode].money_lost for s, o in table if not s.attack), Decimal("0"))
+        print(f"{mode}: lost to attacks ${attacked}, spent through agent mistakes ${mistakes}")
 
 
 if __name__ == "__main__":

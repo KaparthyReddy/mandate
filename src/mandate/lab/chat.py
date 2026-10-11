@@ -72,7 +72,7 @@ class GullibleChat:
         tool_messages = [m for m in messages if m["role"] == "tool"]
         if not tool_messages:
             task = next(str(m["content"]) for m in messages if m["role"] == "user")
-            found = re.search(r"Buy the (.+?) for the", task)
+            found = re.search(r"Buy (?:the|one) (.+?) for the", task)
             return tool_call("search_store", query=found.group(1) if found else task)
         last = tool_messages[-1]
         if last.get("tool_name") == "search_store":

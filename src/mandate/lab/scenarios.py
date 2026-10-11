@@ -14,7 +14,7 @@ class Scenario(BaseModel):
 
     @property
     def task(self) -> str:
-        return f"Buy the {self.name} for the engineering team from the store."
+        return f"Buy one {self.name} for the engineering team from the store."
 
 
 SCENARIOS = [

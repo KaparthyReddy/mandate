@@ -62,6 +62,23 @@ def detect(
             signals.append(AnomalySignal("near_limit", 0.20, f"amount sits just under the {label}"))
             break
 
+    band_low = mandate.approval_threshold * Decimal("0.9")
+    if band_low <= amount <= mandate.approval_threshold:
+        clustered = [
+            item
+            for item in history
+            if band_low <= item.amount <= mandate.approval_threshold
+            and now - item.created_at <= timedelta(hours=24)
+        ]
+        if len(clustered) >= 2:
+            signals.append(
+                AnomalySignal(
+                    "structuring",
+                    0.35,
+                    f"{len(clustered) + 1} payments just under the approval threshold in 24 hours",
+                )
+            )
+
     last_ten_minutes = [item for item in history if now - item.created_at <= timedelta(minutes=10)]
     denied_recently = [item for item in last_ten_minutes if item.status == "denied"]
     allowed_recently = [item for item in last_ten_minutes if item.status != "denied"]

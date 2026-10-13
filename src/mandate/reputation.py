@@ -1,5 +1,6 @@
 import importlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -31,6 +32,27 @@ class MerchantRecord(BaseModel):
 class Match(BaseModel):
     record: MerchantRecord
     similarity: float
+
+
+def normalize_name(name: str) -> str:
+    return re.sub(r"[^0-9a-z\u0080-\U0010ffff]", "", name.lower())
+
+
+def edit_distance(first: str, second: str) -> int:
+    rows = len(first) + 1
+    cols = len(second) + 1
+    table = [[0] * cols for _ in range(rows)]
+    for i in range(rows):
+        table[i][0] = i
+    for j in range(cols):
+        table[0][j] = j
+    for i in range(1, rows):
+        for j in range(1, cols):
+            cost = 0 if first[i - 1] == second[j - 1] else 1
+            table[i][j] = min(table[i - 1][j] + 1, table[i][j - 1] + 1, table[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and first[i - 1] == second[j - 2] and first[i - 2] == second[j - 1]:
+                table[i][j] = min(table[i][j], table[i - 2][j - 2] + 1)
+    return table[-1][-1]
 
 
 def load_records(path: Path = DEFAULT_CORPUS) -> list[MerchantRecord]:

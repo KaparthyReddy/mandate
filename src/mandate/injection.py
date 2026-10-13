@@ -101,6 +101,25 @@ PATTERNS = [
         r"\b(?:decode|decrypt|base64)\b[^.\n]{0,40}?\b(?:and|then)\s+(?:follow|execute|run|obey|apply)\b",
     ),
     _p(
+        "claimed_verbal_approval",
+        "strong",
+        r"\b(?:confirmed|approved|authori[sz]ed|cleared)\b[^.\n]{0,20}"
+        r"\b(?:by phone|over the phone|verbally|in advance)\b",
+    ),
+    _p("keep_secret", "strong", r"\bkeep (?:this|it) (?:between us|secret|quiet|confidential)\b"),
+    _p(
+        "release_funds_now",
+        "medium",
+        r"\b(?:release|send|transfer|wire)\b[^.\n]{0,25}\b(?:payment|funds|money)\b[^.\n]{0,25}"
+        r"\b(?:now|immediately|today)\b",
+    ),
+    _p(
+        "compliance_pressure",
+        "medium",
+        r"\b(?:requires?|demands?)\b[^.\n]{0,30}\b(?:payment|pay|transfer)\b[^.\n]{0,30}"
+        r"\b(?:today|now|immediately)\b|\bto stay compliant\b|\bto avoid (?:suspension|penalt)",
+    ),
+    _p(
         "addressed_to_ai",
         "medium",
         r"\b(?:note|message|notice|attention|tip|hey|hello|dear|instructions?)\b[^.\n]{0,15}?"

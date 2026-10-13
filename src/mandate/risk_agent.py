@@ -6,7 +6,14 @@ from typing import Any
 from mandate.anomaly import HISTORY_WINDOW, HistoryProvider, detect
 from mandate.mandates import Mandate
 from mandate.policy import Decision, PaymentRequest
-from mandate.reputation import RISK_BY_REPUTATION, Match, ReputationIndex, query_text
+from mandate.reputation import (
+    RISK_BY_REPUTATION,
+    Match,
+    ReputationIndex,
+    edit_distance,
+    normalize_name,
+    query_text,
+)
 from mandate.reviewers import Vote
 
 
@@ -22,6 +29,8 @@ class RiskAgent:
         exact_similarity: float = 0.95,
         deny_similarity: float = 0.75,
         escalate_at: float = 0.4,
+        lookalike_min: float = 0.55,
+        lookalike_risk: float = 0.7,
         unknown_risk: float = 0.4,
         reputation_weight: float = 0.7,
         clock: Callable[[], datetime] | None = None,
@@ -32,6 +41,8 @@ class RiskAgent:
         self._exact_similarity = exact_similarity
         self._deny_similarity = deny_similarity
         self._escalate_at = escalate_at
+        self._lookalike_min = lookalike_min
+        self._lookalike_risk = lookalike_risk
         self._unknown_risk = unknown_risk
         self._reputation_weight = reputation_weight
         self._clock = clock or (lambda: datetime.now(UTC))
@@ -49,15 +60,47 @@ class RiskAgent:
         )
         return total / sum(weights), "similar"
 
+    def _lookalike(self, matches: list[Match]) -> Match | None:
+        if not matches or matches[0].similarity >= self._exact_similarity:
+            return None
+        for match in matches:
+            near = self._lookalike_min <= match.similarity < self._exact_similarity
+            if match.record.reputation == "trusted" and near:
+                return match
+        return None
+
+    def _near_spelling(self, merchant: str) -> Match | None:
+        name = normalize_name(merchant)
+        trusted = [r for r in self._index.records if r.reputation == "trusted"]
+        if any(normalize_name(r.name) == name for r in trusted):
+            return None
+        for record in trusted:
+            other = normalize_name(record.name)
+            if min(len(name), len(other)) < 5:
+                continue
+            distance = edit_distance(name, other)
+            if distance <= 2:
+                return Match(record=record, similarity=1 - distance / max(len(name), len(other)))
+        return None
+
     def review(self, mandate: Mandate, request: PaymentRequest, spent: Decimal) -> Vote:
         now = self._clock()
         matches = self._index.search(query_text(request), k=5)
         reputation, source = self._reputation_score(matches)
+        lookalike = self._lookalike(matches) or self._near_spelling(request.merchant)
+        if lookalike is not None:
+            reputation = max(reputation, self._lookalike_risk)
+            source = "lookalike"
         history = self._history.recent_payments(mandate.mandate_id, now - HISTORY_WINDOW)
         anomalies = detect(mandate, request, spent, history, now)
         risk = min(1.0, self._reputation_weight * reputation + sum(a.score for a in anomalies))
 
         reasons: list[str] = []
+        if lookalike is not None:
+            reasons.append(
+                f"merchant name resembles trusted brand '{lookalike.record.name}' but is not an "
+                f"exact match (similarity {lookalike.similarity:.2f})"
+            )
         top = matches[0] if matches else None
         if top is not None and top.similarity >= self._min_similarity:
             reasons.append(

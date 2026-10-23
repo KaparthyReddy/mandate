@@ -1,3 +1,4 @@
+import hashlib
 import time
 from decimal import Decimal
 from functools import lru_cache
@@ -25,8 +26,15 @@ class ProviderCapture(BaseModel):
     status: str
 
 
+class ProviderPayout(BaseModel):
+    payout_id: str
+    status: str
+
+
 class PaymentProvider(Protocol):
     def create_order(self, request: PaymentRequest) -> ProviderOrder: ...
+
+    def create_payout(self, request: PaymentRequest) -> ProviderPayout: ...
 
     def capture_order(self, order_id: str, request_id: str) -> ProviderCapture: ...
 
@@ -35,6 +43,7 @@ class FakeProvider:
     def __init__(self, fail: bool = False) -> None:
         self.fail = fail
         self.orders: list[str] = []
+        self.payouts: list[tuple[str, str]] = []
 
     def create_order(self, request: PaymentRequest) -> ProviderOrder:
         if self.fail:
@@ -46,6 +55,13 @@ class FakeProvider:
             status="PAYER_ACTION_REQUIRED",
             approval_url=f"https://fake.example/approve/{order_id}",
         )
+
+    def create_payout(self, request: PaymentRequest) -> ProviderPayout:
+        if self.fail:
+            raise ProviderError("fake provider failure")
+        payout_id = f"PAYOUT-{request.request_id}"
+        self.payouts.append((payout_id, request.recipient))
+        return ProviderPayout(payout_id=payout_id, status="PENDING")
 
     def capture_order(self, order_id: str, request_id: str) -> ProviderCapture:
         return ProviderCapture(capture_id=f"CAP-{order_id}", status="COMPLETED")
@@ -124,6 +140,39 @@ class PayPalProvider:
             None,
         )
         return ProviderOrder(order_id=data["id"], status=data["status"], approval_url=link)
+
+    def create_payout(self, request: PaymentRequest) -> ProviderPayout:
+        batch_id = hashlib.sha256(request.request_id.encode()).hexdigest()[:30]
+        amount = format(request.amount.quantize(Decimal("0.01")), "f")
+        body: dict[str, Any] = {
+            "sender_batch_header": {
+                "sender_batch_id": batch_id,
+                "email_subject": "Payment from Mandate",
+                "recipient_type": "EMAIL",
+            },
+            "items": [
+                {
+                    "recipient_type": "EMAIL",
+                    "receiver": request.recipient,
+                    "amount": {"value": amount, "currency": request.currency},
+                    "note": (request.description or request.merchant)[:120],
+                    "sender_item_id": batch_id,
+                }
+            ],
+        }
+        try:
+            response = requests.post(
+                f"{self._base_url}/v1/payments/payouts",
+                headers=self._headers(f"payout-{request.request_id}"),
+                json=body,
+                timeout=30,
+            )
+        except requests.RequestException as exc:
+            raise ProviderError(f"PayPal unreachable: {exc}") from exc
+        if not response.ok:
+            raise ProviderError(f"PayPal {response.status_code}: {response.text[:300]}")
+        header = response.json()["batch_header"]
+        return ProviderPayout(payout_id=header["payout_batch_id"], status=header["batch_status"])
 
     def capture_order(self, order_id: str, request_id: str) -> ProviderCapture:
         try:

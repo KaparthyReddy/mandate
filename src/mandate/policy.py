@@ -23,6 +23,7 @@ class PaymentRequest(BaseModel):
     category: str
     description: str = ""
     evidence: str = Field(default="", max_length=8000)
+    recipient: str = Field(default="", max_length=254)
 
 
 class PolicyResult(BaseModel):
@@ -54,6 +55,15 @@ def evaluate(
     remaining = mandate.budget_total - spent_so_far
     if request.amount > remaining:
         denials.append(f"amount {request.amount} exceeds remaining budget {remaining}")
+    if request.recipient:
+        if not mandate.allowed_recipients:
+            denials.append("this mandate does not allow direct payouts")
+        else:
+            listed = {item.strip().lower() for item in mandate.allowed_recipients}
+            if request.recipient.strip().lower() not in listed:
+                denials.append(
+                    f"recipient {request.recipient} is not on the mandate's recipient list"
+                )
     if mandate.allowed_merchants:
         allowed = {m.lower() for m in mandate.allowed_merchants}
         if request.merchant.lower() not in allowed:

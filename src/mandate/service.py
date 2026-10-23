@@ -26,7 +26,7 @@ from mandate.mandates import (
 )
 from mandate.models import MandateRecord, PaymentRecord
 from mandate.policy import Decision, PaymentRequest
-from mandate.provider import PaymentProvider, ProviderError
+from mandate.provider import PaymentProvider, ProviderError, ProviderOrder, ProviderPayout
 from mandate.reviewers import Reviewer, Vote, combine
 
 logger = logging.getLogger(__name__)
@@ -72,6 +72,8 @@ class MandateCreate(BaseModel):
     approval_threshold: Decimal = Field(gt=0)
     allowed_categories: list[str] = Field(default_factory=list)
     allowed_merchants: list[str] = Field(default_factory=list)
+    allowed_recipients: list[str] = Field(default_factory=list)
+    new_payee_approval: bool = False
     ttl_minutes: int = Field(default=1440, gt=0, le=525600)
 
 
@@ -125,6 +127,8 @@ def create_mandate(
         approval_threshold=create.approval_threshold,
         allowed_categories=create.allowed_categories,
         allowed_merchants=create.allowed_merchants,
+        allowed_recipients=create.allowed_recipients,
+        new_payee_approval=create.new_payee_approval,
         issued_at=moment,
         expires_at=moment + timedelta(minutes=create.ttl_minutes),
     )
@@ -288,24 +292,29 @@ def _request_from_record(record: PaymentRecord) -> PaymentRequest:
         merchant=record.merchant,
         category=record.category,
         description=record.description,
+        recipient=record.recipient,
     )
 
 
-def _open_order(session: Session, record: PaymentRecord, provider: PaymentProvider) -> None:
-    try:
-        order = provider.create_order(_request_from_record(record))
-    except ProviderError as exc:
-        record.status = PaymentStatus.FAILED.value
-        record.reasons = [*record.reasons, f"provider error: {exc}"]
-        record.updated_at = _now_iso()
-        session.commit()
-        ledger.append(
-            session,
-            EventType.PAYMENT_FAILED,
-            {"request_id": record.request_id, "error": str(exc)},
-            actor="provider",
-        )
-        return
+def _mask_email(value: str) -> str:
+    name, _, domain = value.partition("@")
+    return f"{name[:1]}***@{domain}" if domain else "***"
+
+
+def _fail(session: Session, record: PaymentRecord, exc: ProviderError) -> None:
+    record.status = PaymentStatus.FAILED.value
+    record.reasons = [*record.reasons, f"provider error: {exc}"]
+    record.updated_at = _now_iso()
+    session.commit()
+    ledger.append(
+        session,
+        EventType.PAYMENT_FAILED,
+        {"request_id": record.request_id, "error": str(exc)},
+        actor="provider",
+    )
+
+
+def _settle_order(session: Session, record: PaymentRecord, order: ProviderOrder) -> None:
     record.status = PaymentStatus.ORDER_CREATED.value
     record.provider_order_id = order.order_id
     record.approval_url = order.approval_url
@@ -317,6 +326,36 @@ def _open_order(session: Session, record: PaymentRecord, provider: PaymentProvid
         {"request_id": record.request_id, "order_id": order.order_id},
         actor="provider",
     )
+
+
+def _settle_payout(session: Session, record: PaymentRecord, payout: ProviderPayout) -> None:
+    record.status = PaymentStatus.EXECUTED.value
+    record.provider_order_id = payout.payout_id
+    record.updated_at = _now_iso()
+    session.commit()
+    ledger.append(
+        session,
+        EventType.PAYMENT_EXECUTED,
+        {
+            "request_id": record.request_id,
+            "kind": "payout",
+            "payout_id": payout.payout_id,
+            "recipient": _mask_email(record.recipient),
+            "amount": record.amount,
+        },
+        actor="provider",
+    )
+
+
+def _open_order(session: Session, record: PaymentRecord, provider: PaymentProvider) -> None:
+    request = _request_from_record(record)
+    try:
+        if record.recipient:
+            _settle_payout(session, record, provider.create_payout(request))
+        else:
+            _settle_order(session, record, provider.create_order(request))
+    except ProviderError as exc:
+        _fail(session, record, exc)
 
 
 def process_payment(
@@ -352,6 +391,7 @@ def process_payment(
         merchant=request.merchant,
         category=request.category,
         description=request.description[:512],
+        recipient=request.recipient,
         status=status.value,
         decision=decision.value,
         reasons=reasons,
@@ -464,6 +504,7 @@ def payment_to_dict(record: PaymentRecord) -> dict[str, Any]:
         "merchant": record.merchant,
         "category": record.category,
         "description": record.description,
+        "recipient": record.recipient,
         "status": record.status,
         "decision": record.decision,
         "reasons": record.reasons,

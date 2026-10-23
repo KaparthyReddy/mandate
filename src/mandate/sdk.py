@@ -33,6 +33,7 @@ class PaymentResult(BaseModel):
     order_id: str | None = None
     approval_url: str | None = None
     capture_id: str | None = None
+    recipient: str = ""
 
     @property
     def approved(self) -> bool:
@@ -65,6 +66,8 @@ class MandateStatus(BaseModel):
     expires_at: datetime
     allowed_categories: list[str] = Field(default_factory=list)
     allowed_merchants: list[str] = Field(default_factory=list)
+    allowed_recipients: list[str] = Field(default_factory=list)
+    new_payee_approval: bool = False
 
     @classmethod
     def from_view(cls, view: dict[str, Any]) -> Self:
@@ -171,6 +174,8 @@ class MandateClient:
         issuer: str = "sdk",
         allowed_categories: list[str] | None = None,
         allowed_merchants: list[str] | None = None,
+        allowed_recipients: list[str] | None = None,
+        new_payee_approval: bool = False,
         currency: str = "USD",
         ttl_minutes: int = 1440,
     ) -> MandateStatus:
@@ -187,6 +192,8 @@ class MandateClient:
                 "approval_threshold": str(approval_threshold),
                 "allowed_categories": allowed_categories or [],
                 "allowed_merchants": allowed_merchants or [],
+                "allowed_recipients": allowed_recipients or [],
+                "new_payee_approval": new_payee_approval,
                 "ttl_minutes": ttl_minutes,
             },
         )
@@ -205,6 +212,7 @@ class MandateClient:
         category: str,
         description: str = "",
         evidence: str = "",
+        recipient: str = "",
         currency: str = "USD",
         request_id: str | None = None,
     ) -> PaymentResult:
@@ -218,6 +226,7 @@ class MandateClient:
             "category": category,
             "description": description,
             "evidence": evidence,
+            "recipient": recipient,
         }
         return PaymentResult.model_validate(self._call("POST", "/payments/request", json=body))
 

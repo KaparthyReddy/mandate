@@ -63,5 +63,6 @@ class PaymentRecord(Base):
     provider_order_id: Mapped[str | None] = mapped_column(String(64), default=None)
     approval_url: Mapped[str | None] = mapped_column(String(512), default=None)
     capture_id: Mapped[str | None] = mapped_column(String(64), default=None)
+    recipient: Mapped[str] = mapped_column(String(254), default="")
     created_at: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[str] = mapped_column(String(40))

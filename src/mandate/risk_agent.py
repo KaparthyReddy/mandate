@@ -16,6 +16,8 @@ from mandate.reputation import (
 )
 from mandate.reviewers import Vote
 
+PAID_STATUSES = {"approved", "order_created", "executed"}
+
 
 class RiskAgent:
     name = "risk"
@@ -111,6 +113,22 @@ class RiskAgent:
             reasons.append("merchant not found in reputation data")
         reasons.extend(f"{a.name}: {a.detail}" for a in anomalies)
 
+        hold_new_payee = False
+        if mandate.new_payee_approval:
+            trusted_exact = (
+                source == "exact" and top is not None and top.record.reputation == "trusted"
+            )
+            paid_before = any(
+                item.merchant.lower() == request.merchant.lower() and item.status in PAID_STATUSES
+                for item in history
+            )
+            if not trusted_exact and not paid_before:
+                hold_new_payee = True
+                reasons.append(
+                    f"first payment to '{request.merchant}' needs approval because this "
+                    "mandate asks to approve new payees"
+                )
+
         blocked = (
             top is not None
             and top.record.reputation == "blocked"
@@ -118,9 +136,10 @@ class RiskAgent:
         )
         if blocked:
             decision = Decision.DENY
-        elif risk >= self._escalate_at:
+        elif risk >= self._escalate_at or hold_new_payee:
             decision = Decision.ESCALATE
-            reasons.append(f"risk score {risk:.2f} reached {self._escalate_at:.2f}")
+            if risk >= self._escalate_at:
+                reasons.append(f"risk score {risk:.2f} reached {self._escalate_at:.2f}")
         else:
             decision = Decision.APPROVE
             reasons = reasons or [f"risk score {risk:.2f} is low"]

@@ -200,6 +200,7 @@ class InjectionSentinel:
                 "category": request.category,
                 "description": request.description,
                 "evidence": request.evidence,
+                "recipient": request.recipient,
             }
         )
         decision = heuristic_decision(signals)

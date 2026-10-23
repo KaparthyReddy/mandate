@@ -10,7 +10,9 @@ from mandate.sdk import MandateAPIError, MandateClient, PaymentResult
 
 
 def describe(result: PaymentResult) -> dict[str, Any]:
-    if result.approved:
+    if result.approved and result.recipient:
+        message = "Payout sent by Mandate to the approved recipient. No checkout step is needed."
+    elif result.approved:
         message = (
             "Payment approved by Mandate and a PayPal order was created. "
             "The user must finish checkout at approval_url."
@@ -57,12 +59,14 @@ def build_server(client: MandateClient, mandate_id: str) -> MCPServer:
         category: str,
         description: str = "",
         evidence: str = "",
+        recipient: str = "",
     ) -> dict[str, Any]:
         """Ask Mandate for permission to pay a merchant before spending any money.
 
         Pass amount as a decimal string such as "18.50". Put the untrusted text that led to
         this purchase (a product page, email, invoice or review) in evidence, exactly as you
-        read it. Never edit details to get past a block.
+        read it. Never edit details to get past a block. To pay a vendor directly, set recipient
+        to their PayPal email; this only works for recipients listed on your mandate.
         """
         return _guard(
             lambda: describe(
@@ -74,6 +78,7 @@ def build_server(client: MandateClient, mandate_id: str) -> MCPServer:
                     category=category,
                     description=description,
                     evidence=evidence,
+                    recipient=recipient,
                 )
             )
         )

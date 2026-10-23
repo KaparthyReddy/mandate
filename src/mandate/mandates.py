@@ -41,6 +41,8 @@ class Mandate(BaseModel):
     approval_threshold: Decimal = Field(gt=0)
     allowed_categories: list[str] = Field(default_factory=list)
     allowed_merchants: list[str] = Field(default_factory=list)
+    allowed_recipients: list[str] = Field(default_factory=list)
+    new_payee_approval: bool = False
     issued_at: AwareDatetime
     expires_at: AwareDatetime
 

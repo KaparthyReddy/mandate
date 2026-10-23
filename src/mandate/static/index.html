@@ -83,6 +83,8 @@ a{color:var(--blue)}
         </div>
         <label>Ask me above ($)<input name="approval_threshold" type="number" step="0.01" min="1" value="50" required></label>
         <label>Allowed categories, comma separated<input name="categories" placeholder="Leave empty to let the council judge"></label>
+        <label>Vendors you pay directly (PayPal emails, comma separated)<input name="recipients" placeholder="Leave empty to allow no direct payouts"></label>
+        <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="new_payee" style="width:auto;margin:0"> Ask me before paying a merchant for the first time</label>
         <button class="btn" type="submit">Issue mandate</button>
       </form>
     </section>
@@ -113,6 +115,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>'$'+Number(x).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const ago=iso=>{const s=Math.max(0,(Date.now()-new Date(iso))/1000);if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+' min ago';if(s<86400)return Math.floor(s/3600)+' h ago';return Math.floor(s/86400)+' d ago'};
+const maskEmail=e=>{const i=String(e).indexOf('@');return i>0?String(e)[0]+'***'+String(e).slice(i):'***'};
 const safeUrl=u=>/^https:\/\//.test(u||'')?u:'';
 const api=async(p,o)=>{const r=await fetch(p,o),t=await r.text();let d;try{d=JSON.parse(t)}catch{d=t}
   if(!r.ok)throw new Error(d&&d.detail?(typeof d.detail==='string'?d.detail:d.detail.map(x=>`${(x.loc||[]).slice(1).join('.')}: ${x.msg}`).join('; ')):r.statusText);return d};
@@ -158,7 +161,7 @@ function renderMandates(){
 function renderFeed(){
   $('#feed').innerHTML=S.payments.map(p=>{const [label,tone]=STATUS[p.status]||[p.status,'neutral'],votes=S.votes[p.request_id]||[],open=S.open.has(p.request_id);
     return `<div class="pay ${tone}" data-act="toggle" data-id="${esc(p.request_id)}"><div class="row"><b>${esc(p.merchant)}</b><span class="amt">${money(p.amount)}</span></div>
-    <div class="row"><span class="mute">${esc(p.description||p.category)}, ${ago(p.created_at)}</span>${pill(label,tone)}</div>
+    <div class="row"><span class="mute">${esc(p.description||p.category)}${p.recipient?`, payout to ${esc(maskEmail(p.recipient))}`:''}, ${ago(p.created_at)}</span>${pill(label,tone)}</div>
     <div class="votes">${votes.map(v=>pill(`${v.reviewer} ${v.decision}`,TONE[v.decision]||'neutral')).join('')}</div>
     ${open?`<ul class="why">${p.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>`:''}</div>`}).join('')||'<div class="empty">No payments yet. Send a test payment to watch the council decide.</div>';
 }
@@ -220,7 +223,9 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
 $('#form').addEventListener('submit',async e=>{
   e.preventDefault();const f=new FormData(e.target),btn=e.target.querySelector('button');btn.disabled=true;
   try{await post('/mandates',{issuer:'dashboard',purpose:f.get('purpose'),agent_id:f.get('agent_id'),budget_total:f.get('budget_total'),per_txn_cap:f.get('per_txn_cap'),approval_threshold:f.get('approval_threshold'),
-    allowed_categories:String(f.get('categories')||'').split(',').map(s=>s.trim()).filter(Boolean)});toast('Mandate issued')}
+    allowed_categories:String(f.get('categories')||'').split(',').map(s=>s.trim()).filter(Boolean),
+    allowed_recipients:String(f.get('recipients')||'').split(',').map(s=>s.trim()).filter(Boolean),
+    new_payee_approval:f.get('new_payee')==='on'});toast('Mandate issued')}
   catch(err){toast(err.message,true)}finally{btn.disabled=false;tick()}});
 tick();setInterval(tick,1500);
 </script>

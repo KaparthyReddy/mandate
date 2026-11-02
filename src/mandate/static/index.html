@@ -56,7 +56,7 @@ input,select{display:block;width:100%;margin-top:3px;padding:7px 9px;border:1px 
 a{color:var(--blue)}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 16px;border-radius:8px;background:var(--ink);color:#fff;box-shadow:0 6px 24px #0003}
 #toast.bad{background:var(--bad)}
-#offline{margin:0;padding:8px 24px;background:var(--warnbg);color:var(--warn);font-weight:600}
+#gate{position:fixed;inset:0;background:#14213dcc;display:flex;align-items:center;justify-content:center;z-index:10}#gate[hidden]{display:none}#gate .box{background:#fff;border-radius:12px;padding:24px;width:min(420px,92vw)}#gate h3{margin:0 0 6px;font:600 20px var(--serif)}#offline{margin:0;padding:8px 24px;background:var(--warnbg);color:var(--warn);font-weight:600}
 @media(max-width:1000px){.grid{grid-template-columns:1fr}.tag{display:none}}
 @media(prefers-reduced-motion:reduce){.blk.new{animation:none}}
 </style>
@@ -109,6 +109,15 @@ a{color:var(--blue)}
     <section class="panel"><h3>Waiting for you</h3><div id="inbox"></div></section>
   </div>
 </main>
+<div id="gate" hidden>
+  <div class="box">
+    <h3>Enter your admin key</h3>
+    <p class="mute">The dashboard needs the admin key from your server settings. It is kept only for this browser tab.</p>
+    <input id="keyInput" type="password" placeholder="MANDATE_ADMIN_KEY" autocomplete="off">
+    <div class="acts"><button class="btn" id="keyConnect">Connect</button></div>
+    <p id="keyError" class="mute" style="color:var(--bad)" hidden>That key was not accepted.</p>
+  </div>
+</div>
 <div id="toast" hidden></div>
 <script>
 const $=s=>document.querySelector(s);
@@ -117,7 +126,9 @@ const money=x=>'$'+Number(x).toLocaleString(undefined,{minimumFractionDigits:2,m
 const ago=iso=>{const s=Math.max(0,(Date.now()-new Date(iso))/1000);if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+' min ago';if(s<86400)return Math.floor(s/3600)+' h ago';return Math.floor(s/86400)+' d ago'};
 const maskEmail=e=>{const i=String(e).indexOf('@');return i>0?String(e)[0]+'***'+String(e).slice(i):'***'};
 const safeUrl=u=>/^https:\/\//.test(u||'')?u:'';
-const api=async(p,o)=>{const r=await fetch(p,o),t=await r.text();let d;try{d=JSON.parse(t)}catch{d=t}
+const api=async(p,o={})=>{const key=sessionStorage.getItem('mandate_key');
+  const r=await fetch(p,{...o,headers:{...(o.headers||{}),...(key?{Authorization:'Bearer '+key}:{})}}),t=await r.text();let d;try{d=JSON.parse(t)}catch{d=t}
+  if(r.status===401){const e=new Error('Unauthorized');e.status=401;throw e}
   if(!r.ok)throw new Error(d&&d.detail?(typeof d.detail==='string'?d.detail:d.detail.map(x=>`${(x.loc||[]).slice(1).join('.')}: ${x.msg}`).join('; ')):r.statusText);return d};
 const post=(p,b)=>api(p,{method:'POST',headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});
 let toastTimer;
@@ -183,6 +194,9 @@ function renderInbox(){
     +(hidden>0?`<div class="mute" style="margin-top:8px">${hidden} older orders not shown</div>`:'');
 }
 function render(){renderChain();renderMandates();renderFeed();renderInbox();S.maxSeq=S.last}
+function showGate(rejected){$('#gate').hidden=false;$('#keyError').hidden=!rejected;sessionStorage.removeItem('mandate_key')}
+$('#keyConnect').addEventListener('click',()=>{const v=$('#keyInput').value.trim();if(!v)return;sessionStorage.setItem('mandate_key',v);$('#gate').hidden=true;$('#keyInput').value='';tick()});
+$('#keyInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('#keyConnect').click()});
 let ticking=false,again=false;
 async function tick(){
   if(ticking){again=true;return}
@@ -197,7 +211,7 @@ async function tick(){
       if(x.entry_type==='decision_made'){const c=(x.payload.votes||[])[0];S.votes[x.payload.request_id]=c?(c.details.votes||[c]):[]}}
     S.entries.sort((a,b)=>a.seq-b.seq);S.entries=S.entries.slice(-60);S.payments=p;S.mandates=m;
     renderIntegrity(v);render();$('#offline').hidden=true;
-  }catch(err){$('#offline').hidden=false}
+  }catch(err){if(err.status===401){showGate(!!sessionStorage.getItem('mandate_key'));return}$('#offline').hidden=false}
   finally{ticking=false;if(again){again=false;tick()}}
 }
 async function act(b){

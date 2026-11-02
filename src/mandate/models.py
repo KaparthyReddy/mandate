@@ -66,3 +66,15 @@ class PaymentRecord(Base):
     recipient: Mapped[str] = mapped_column(String(254), default="")
     created_at: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[str] = mapped_column(String(40))
+
+
+class ApiKeyRecord(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key_id: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    agent_id: Mapped[str] = mapped_column(String(128))
+    label: Mapped[str] = mapped_column(String(100), default="")
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[str] = mapped_column(String(40))
+    revoked: Mapped[bool] = mapped_column(default=False)

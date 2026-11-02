@@ -31,6 +31,11 @@ class Settings:
     risk_enabled: bool
     embedder: str
     embedding_model: str
+    auth_enabled: bool = True
+    admin_key: str = ""
+    webhook_id: str = ""
+    webhook_verification: str = "on"
+    rate_limit_per_minute: int = 60
 
 
 @lru_cache
@@ -54,6 +59,11 @@ def get_settings() -> Settings:
         risk_enabled=os.environ.get("RISK_ENABLED", "true").lower() in ("1", "true", "yes"),
         embedder=os.environ.get("EMBEDDER", "auto"),
         embedding_model=os.environ.get("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"),
+        auth_enabled=os.environ.get("AUTH_ENABLED", "true").lower() in ("1", "true", "yes"),
+        admin_key=os.environ.get("MANDATE_ADMIN_KEY", ""),
+        webhook_id=os.environ.get("PAYPAL_WEBHOOK_ID", ""),
+        webhook_verification=os.environ.get("WEBHOOK_VERIFICATION", "on"),
+        rate_limit_per_minute=int(os.environ.get("RATE_LIMIT_PER_MINUTE", "60")),
     )
 
 

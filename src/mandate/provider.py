@@ -74,6 +74,13 @@ class PayPalProvider:
         self._token = ""
         self._expires_at = 0.0
 
+    @property
+    def base_url(self) -> str:
+        return self._base_url
+
+    def access_token(self) -> str:
+        return self._access_token()
+
     def _access_token(self) -> str:
         if self._token and time.time() < self._expires_at - 60:
             return self._token

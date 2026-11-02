@@ -1,6 +1,6 @@
-from mandate.sdk import MandateClient
+from mandate.sdk import MandateClient, admin_key_from_env
 
-with MandateClient("http://localhost:8000") as client:
+with MandateClient("http://localhost:8000", api_key=admin_key_from_env()) as client:
     mandate = client.create_mandate(
         purpose="Office supplies for the engineering team",
         agent_id="office-agent",

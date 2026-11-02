@@ -13,3 +13,5 @@ class EventType(StrEnum):
     PAYMENT_FAILED = "payment_failed"
     WEBHOOK_RECEIVED = "webhook_received"
     KILL_SWITCH = "kill_switch"
+    KEY_CREATED = "key_created"
+    KEY_REVOKED = "key_revoked"

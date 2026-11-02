@@ -1,9 +1,11 @@
 import argparse
+import os
 import time
 import uuid
 from typing import Any
 
 import requests
+from dotenv import load_dotenv
 
 MANDATE = {
     "issuer": "demo-user",
@@ -76,7 +78,9 @@ SCENARIOS: list[dict[str, Any]] = [
 
 
 def call(method: str, url: str, **kwargs: Any) -> Any:
-    response = requests.request(method, url, timeout=300, **kwargs)
+    key = os.environ.get("MANDATE_ADMIN_KEY")
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    response = requests.request(method, url, timeout=300, headers=headers, **kwargs)
     response.raise_for_status()
     return response.json()
 
@@ -96,6 +100,7 @@ def show_votes(base: str, request_id: str, head_seq: int) -> None:
 
 
 def main() -> None:
+    load_dotenv()
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="http://localhost:8000")
     parser.add_argument("--capture", action="store_true", help="pause to approve and capture #1")

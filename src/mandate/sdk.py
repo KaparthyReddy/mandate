@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -5,6 +6,7 @@ from types import TracebackType
 from typing import Any, Protocol, Self
 
 import httpx
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 APPROVED_STATUSES = {"approved", "order_created", "executed"}
@@ -102,6 +104,11 @@ class HTTPClient(Protocol):
     ) -> HTTPResponse: ...
 
 
+def admin_key_from_env() -> str | None:
+    load_dotenv()
+    return os.environ.get("MANDATE_ADMIN_KEY")
+
+
 def _detail(response: HTTPResponse) -> str:
     try:
         data = response.json()
@@ -126,6 +133,9 @@ class MandateClient:
         timeout: float = 300.0,
         http: HTTPClient | None = None,
     ) -> None:
+        if api_key is None:
+            load_dotenv()
+            api_key = os.environ.get("MANDATE_API_KEY")
         self._headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self._owned: httpx.Client | None = None
         if http is None:
@@ -198,6 +208,10 @@ class MandateClient:
             },
         )
         return self.get_mandate(signed["mandate"]["mandate_id"])
+
+    def create_agent_key(self, agent_id: str, label: str = "") -> str:
+        created = self._call("POST", "/admin/keys", json={"agent_id": agent_id, "label": label})
+        return str(created["key"])
 
     def get_mandate(self, mandate_id: str) -> MandateStatus:
         return MandateStatus.from_view(self._call("GET", f"/mandates/{mandate_id}"))

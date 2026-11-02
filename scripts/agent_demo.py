@@ -8,7 +8,7 @@ from mandate.lab.chat import ChatModel, GullibleChat, OllamaChat
 from mandate.lab.payers import MandatePayer, NaivePayer, Payer
 from mandate.lab.scenarios import SCENARIOS, Outcome, Scenario, evaluate
 from mandate.lab.store import default_store
-from mandate.sdk import MandateClient
+from mandate.sdk import MandateClient, admin_key_from_env
 
 
 def show(result: RunResult) -> None:
@@ -56,7 +56,7 @@ def main() -> None:
     modes = ["naive", "protected"] if args.mode == "both" else [args.mode]
     table: list[tuple[Scenario, dict[str, Outcome]]] = []
 
-    with MandateClient(args.base) as client:
+    with MandateClient(args.base, api_key=admin_key_from_env()) as client:
         for scenario in scenarios:
             outcomes: dict[str, Outcome] = {}
             for mode in modes:

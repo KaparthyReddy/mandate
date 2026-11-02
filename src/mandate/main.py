@@ -9,10 +9,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from mandate import ledger, service
+from mandate import keys, ledger, service
+from mandate.auth import Principal, authenticate, rate_limited, require_admin
 from mandate.config import get_private_key, get_public_key
 from mandate.db import engine, get_session
 from mandate.events import EventType
@@ -22,6 +24,7 @@ from mandate.policy import PaymentRequest
 from mandate.provider import PaymentProvider, ProviderError, get_provider
 from mandate.reviewers import Reviewer
 from mandate.service import MandateCreate, NotFoundError, StateError
+from mandate.webhooks import WebhookVerifier, get_webhook_verifier
 from mandate.wiring import get_reviewers
 
 
@@ -38,6 +41,15 @@ PrivateKeyDep = Annotated[Ed25519PrivateKey, Depends(get_private_key)]
 PublicKeyDep = Annotated[Ed25519PublicKey, Depends(get_public_key)]
 ProviderDep = Annotated[PaymentProvider, Depends(get_provider)]
 ReviewersDep = Annotated[Sequence[Reviewer], Depends(get_reviewers)]
+AuthDep = Annotated[Principal, Depends(authenticate)]
+AdminDep = Annotated[Principal, Depends(require_admin)]
+LimitedDep = Annotated[Principal, Depends(rate_limited)]
+VerifierDep = Annotated[WebhookVerifier, Depends(get_webhook_verifier)]
+
+
+class KeyCreate(BaseModel):
+    agent_id: str
+    label: str = ""
 
 
 @app.exception_handler(NotFoundError)
@@ -64,7 +76,7 @@ def dashboard() -> FileResponse:
 
 
 @app.post("/kill-switch")
-def kill_switch(session: SessionDep) -> dict[str, int]:
+def kill_switch(session: SessionDep, _: AdminDep) -> dict[str, int]:
     return service.kill_switch(session)
 
 
@@ -78,6 +90,7 @@ def create_mandate(
     body: MandateCreate,
     session: SessionDep,
     private_key: PrivateKeyDep,
+    _: AdminDep,
 ) -> SignedMandate:
     try:
         return service.create_mandate(session, body, private_key)
@@ -86,17 +99,20 @@ def create_mandate(
 
 
 @app.get("/mandates")
-def list_mandates(session: SessionDep) -> list[dict[str, Any]]:
+def list_mandates(session: SessionDep, _: AdminDep) -> list[dict[str, Any]]:
     return service.list_mandate_views(session)
 
 
 @app.get("/mandates/{mandate_id}")
-def get_mandate(mandate_id: str, session: SessionDep) -> dict[str, Any]:
-    return service.mandate_view(session, mandate_id)
+def get_mandate(mandate_id: str, session: SessionDep, principal: AuthDep) -> dict[str, Any]:
+    view = service.mandate_view(session, mandate_id)
+    if principal.role == "agent" and view["mandate"]["mandate"]["agent_id"] != principal.agent_id:
+        raise NotFoundError(f"mandate {mandate_id} not found")
+    return view
 
 
 @app.post("/mandates/{mandate_id}/revoke")
-def revoke_mandate(mandate_id: str, session: SessionDep) -> dict[str, Any]:
+def revoke_mandate(mandate_id: str, session: SessionDep, _: AdminDep) -> dict[str, Any]:
     service.revoke_mandate(session, mandate_id)
     return service.mandate_view(session, mandate_id)
 
@@ -108,7 +124,10 @@ def request_payment(
     public_key: PublicKeyDep,
     provider: ProviderDep,
     reviewers: ReviewersDep,
+    principal: LimitedDep,
 ) -> dict[str, Any]:
+    if principal.role == "agent" and body.agent_id != principal.agent_id:
+        raise HTTPException(status_code=403, detail="this key belongs to a different agent")
     record = service.process_payment(session, body, public_key, provider, reviewers)
     return service.payment_to_dict(record)
 
@@ -116,6 +135,7 @@ def request_payment(
 @app.get("/payments")
 def list_payments(
     session: SessionDep,
+    _: AdminDep,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     mandate_id: str | None = None,
 ) -> list[dict[str, Any]]:
@@ -123,8 +143,11 @@ def list_payments(
 
 
 @app.get("/payments/{request_id}")
-def get_payment(request_id: str, session: SessionDep) -> dict[str, Any]:
-    return service.payment_to_dict(service.get_payment(session, request_id))
+def get_payment(request_id: str, session: SessionDep, principal: AuthDep) -> dict[str, Any]:
+    record = service.get_payment(session, request_id)
+    if principal.role == "agent" and record.agent_id != principal.agent_id:
+        raise NotFoundError(f"payment {request_id} not found")
+    return service.payment_to_dict(record)
 
 
 @app.post("/payments/{request_id}/approve")
@@ -133,6 +156,7 @@ def approve_payment(
     session: SessionDep,
     public_key: PublicKeyDep,
     provider: ProviderDep,
+    _: AdminDep,
     approver: str = "human",
 ) -> dict[str, Any]:
     record = service.approve_payment(session, request_id, public_key, provider, approver)
@@ -140,17 +164,25 @@ def approve_payment(
 
 
 @app.post("/payments/{request_id}/reject")
-def reject_payment(request_id: str, session: SessionDep, rejecter: str = "human") -> dict[str, Any]:
+def reject_payment(
+    request_id: str, session: SessionDep, _: AdminDep, rejecter: str = "human"
+) -> dict[str, Any]:
     return service.payment_to_dict(service.reject_payment(session, request_id, rejecter))
 
 
 @app.post("/payments/{request_id}/capture")
-def capture_payment(request_id: str, session: SessionDep, provider: ProviderDep) -> dict[str, Any]:
+def capture_payment(
+    request_id: str, session: SessionDep, provider: ProviderDep, _: AdminDep
+) -> dict[str, Any]:
     return service.payment_to_dict(service.capture_payment(session, request_id, provider))
 
 
 @app.post("/webhooks/paypal")
-def paypal_webhook(event: dict[str, Any], session: SessionDep) -> dict[str, str]:
+def paypal_webhook(
+    event: dict[str, Any], request: Request, session: SessionDep, verifier: VerifierDep
+) -> dict[str, str]:
+    if not verifier.verify(request.headers, event):
+        raise HTTPException(status_code=401, detail="webhook signature could not be verified")
     event_id = str(event.get("id", ""))
     if not event_id:
         raise HTTPException(status_code=400, detail="missing event id")
@@ -169,7 +201,7 @@ def paypal_webhook(event: dict[str, Any], session: SessionDep) -> dict[str, str]
 
 
 @app.get("/webhooks/events")
-def list_events(session: SessionDep) -> list[dict[str, str]]:
+def list_events(session: SessionDep, _: AdminDep) -> list[dict[str, str]]:
     rows = session.scalars(select(WebhookEvent).order_by(WebhookEvent.id.desc()).limit(50))
     return [
         {
@@ -184,6 +216,7 @@ def list_events(session: SessionDep) -> list[dict[str, str]]:
 @app.get("/ledger")
 def list_ledger(
     session: SessionDep,
+    _: AdminDep,
     after_seq: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
 ) -> list[dict[str, Any]]:
@@ -197,5 +230,21 @@ def list_ledger(
 
 
 @app.get("/ledger/verify")
-def verify_ledger(session: SessionDep) -> ledger.VerificationResult:
+def verify_ledger(session: SessionDep, _: AdminDep) -> ledger.VerificationResult:
     return ledger.verify_chain(session)
+
+
+@app.post("/admin/keys")
+def create_key(body: KeyCreate, session: SessionDep, _: AdminDep) -> dict[str, Any]:
+    record, token = keys.create_key(session, body.agent_id, body.label)
+    return {**keys.key_view(record), "key": token}
+
+
+@app.get("/admin/keys")
+def list_keys(session: SessionDep, _: AdminDep) -> list[dict[str, Any]]:
+    return keys.list_keys(session)
+
+
+@app.post("/admin/keys/{key_id}/revoke")
+def revoke_key(key_id: str, session: SessionDep, _: AdminDep) -> dict[str, Any]:
+    return keys.revoke_key(session, key_id)

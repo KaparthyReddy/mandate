@@ -1,6 +1,6 @@
 import argparse
 
-from mandate.sdk import MandateClient
+from mandate.sdk import MandateClient, admin_key_from_env
 
 
 def main() -> None:
@@ -10,7 +10,7 @@ def main() -> None:
     parser.add_argument("--base", default="http://localhost:8000")
     args = parser.parse_args()
 
-    with MandateClient(args.base) as client:
+    with MandateClient(args.base, api_key=admin_key_from_env()) as client:
         mandate = client.create_mandate(
             purpose="Pay contractors and suppliers",
             agent_id="payout-agent",

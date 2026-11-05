@@ -37,6 +37,7 @@ mandate = ["data/*.jsonl", "static/*.html"]
 
 [tool.ruff]
 line-length = 100
+extend-exclude = ["build", "dist"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]

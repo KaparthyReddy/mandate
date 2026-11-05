@@ -62,3 +62,5 @@
 {"name": "Account Verify Team", "category": "security", "reputation": "blocked", "notes": "Credential phishing"}
 {"name": "Lottery Winner Claims", "category": "promotions", "reputation": "blocked", "notes": "Lottery advance-fee scam"}
 {"name": "Refund Recovery Services", "category": "finance", "reputation": "blocked", "notes": "Scam recovery fraud"}
+{"name": "PaperTrail", "category": "office_supplies", "reputation": "trusted", "notes": "Demo office supplies retailer"}
+{"name": "DeskWorks", "category": "office_supplies", "reputation": "trusted", "notes": "Demo office furniture and supplies retailer"}

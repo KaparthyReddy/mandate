@@ -29,15 +29,20 @@ def build_risk_agent(settings: Settings) -> RiskAgent:
     return RiskAgent(index, DbHistoryProvider(SessionLocal))
 
 
-@lru_cache
-def get_reviewers() -> Sequence[Reviewer]:
-    settings = get_settings()
+def build_council(settings: Settings) -> list[Reviewer]:
     if not settings.council_enabled:
         return []
-    agents: list[Reviewer] = [
-        *build_intent_agents(settings),
-        InjectionSentinel(build_llm(settings)),
-    ]
+    agents: list[Reviewer] = []
+    if settings.llm_enabled:
+        agents.extend(build_intent_agents(settings))
+        agents.append(InjectionSentinel(build_llm(settings)))
+    else:
+        agents.append(InjectionSentinel(None))
     if settings.risk_enabled:
         agents.append(build_risk_agent(settings))
     return [Council(agents)]
+
+
+@lru_cache
+def get_reviewers() -> Sequence[Reviewer]:
+    return build_council(get_settings())

@@ -36,6 +36,7 @@ class Settings:
     webhook_id: str = ""
     webhook_verification: str = "on"
     rate_limit_per_minute: int = 60
+    llm_enabled: bool = True
 
 
 @lru_cache
@@ -64,6 +65,7 @@ def get_settings() -> Settings:
         webhook_id=os.environ.get("PAYPAL_WEBHOOK_ID", ""),
         webhook_verification=os.environ.get("WEBHOOK_VERIFICATION", "on"),
         rate_limit_per_minute=int(os.environ.get("RATE_LIMIT_PER_MINUTE", "60")),
+        llm_enabled=os.environ.get("LLM_ENABLED", "true").lower() in ("1", "true", "yes"),
     )
 
 

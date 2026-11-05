@@ -5,26 +5,55 @@ services:
       POSTGRES_USER: mandate
       POSTGRES_PASSWORD: mandate
       POSTGRES_DB: mandate
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mandate"]
       interval: 3s
       timeout: 3s
-      retries: 10
+      retries: 20
 
   api:
     build: .
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql+psycopg://mandate:mandate@db:5432/mandate
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://mandate:mandate@db:5432/mandate
+      MANDATE_AUTO_SECRETS: "true"
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-fake}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
+      PAYPAL_BASE_URL: ${PAYPAL_BASE_URL:-https://api-m.sandbox.paypal.com}
+      PAYPAL_WEBHOOK_ID: ${PAYPAL_WEBHOOK_ID:-}
+      LLM_ENABLED: ${LLM_ENABLED:-false}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b-instruct}
+      EMBEDDER: hashing
+    volumes:
+      - mandate-data:/data
     depends_on:
       db:
         condition: service_healthy
 
+  ollama:
+    image: ollama/ollama
+    profiles: ["llm"]
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+
+  ollama-pull:
+    image: ollama/ollama
+    profiles: ["llm"]
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "qwen2.5:7b-instruct"]
+    restart: "no"
+
 volumes:
   pgdata:
+  mandate-data:
+  ollama:

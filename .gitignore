@@ -9,3 +9,7 @@ __pycache__/
 *.egg-info/
 bench_results*/**/work/
 bench_results*/**/llm_cache_*.jsonl
+build/
+dist/
+*.egg-info/
+data/

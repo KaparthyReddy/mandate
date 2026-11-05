@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from mandate import keys, ledger, service
 from mandate.auth import Principal, authenticate, rate_limited, require_admin
+from mandate.bootstrap import ensure_runtime_secrets
 from mandate.config import get_private_key, get_public_key
 from mandate.db import engine, get_session
 from mandate.events import EventType
@@ -30,6 +31,8 @@ from mandate.wiring import get_reviewers
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    for note in ensure_runtime_secrets():
+        print(note, flush=True)
     Base.metadata.create_all(engine)
     yield
 

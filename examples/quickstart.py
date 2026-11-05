@@ -12,7 +12,7 @@ with MandateClient("http://localhost:8000", api_key=admin_key_from_env()) as cli
         mandate_id=mandate.mandate_id,
         agent_id=mandate.agent_id,
         amount="25.00",
-        merchant="Staples",
+        merchant="PaperTrail",
         category="office_supplies",
         description="Printer paper",
     )

@@ -1,6 +1,6 @@
 from mandate.config import Settings
 from mandate.intent_agent import IntentAgent
-from mandate.wiring import build_intent_agents, build_risk_agent
+from mandate.wiring import build_council, build_intent_agents, build_risk_agent
 
 
 def make_settings(models: tuple[str, ...] = ("llama3.1",), embedder: str = "hashing") -> Settings:
@@ -36,3 +36,18 @@ def test_multiple_models_get_unique_agent_names() -> None:
 def test_risk_agent_builds_with_hashing_embedder() -> None:
     agent = build_risk_agent(make_settings())
     assert agent.name == "risk"
+
+
+def agent_names(settings: Settings) -> list[str]:
+    council = build_council(settings)
+    return [agent.name for agent in council[0].agents] if council else []  # type: ignore[attr-defined]
+
+
+def test_council_composition_follows_the_settings() -> None:
+    import dataclasses
+
+    base = make_settings(embedder="hashing")
+    assert agent_names(base) == ["intent", "sentinel", "risk"]
+    assert agent_names(dataclasses.replace(base, llm_enabled=False)) == ["sentinel", "risk"]
+    assert agent_names(dataclasses.replace(base, risk_enabled=False)) == ["intent", "sentinel"]
+    assert agent_names(dataclasses.replace(base, council_enabled=False)) == []
